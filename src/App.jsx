@@ -33,6 +33,7 @@ export default function App() {
       <Route path="/tracciabilita/:lotto" element={<TracciabilitaQR />} />
 
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<Login />} />
       <Route path="/" element={
         <ProtectedRoute>
           <Layout />
