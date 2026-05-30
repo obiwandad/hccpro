@@ -22,6 +22,23 @@ const FILE_ICON = (ct) => {
   return '📄'
 }
 
+const TAG_COLORS = [
+  { dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200' },
+  { dot: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-200' },
+  { dot: 'bg-violet-500', bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200' },
+  { dot: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200' },
+  { dot: 'bg-rose-500', bg: 'bg-rose-50', text: 'text-rose-700', ring: 'ring-rose-200' },
+  { dot: 'bg-cyan-500', bg: 'bg-cyan-50', text: 'text-cyan-700', ring: 'ring-cyan-200' },
+]
+
+const tagColor = (tag) => {
+  const s = String(tag || '')
+  let h = 0
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) | 0
+  const idx = Math.abs(h) % TAG_COLORS.length
+  return TAG_COLORS[idx]
+}
+
 export default function Documentazione() {
   const { user } = useAuth()
   const { activeLocaleId, activeLocaleName, profilo } = useLocale()
@@ -181,9 +198,12 @@ export default function Documentazione() {
           {allTags.map(tag => (
             <button key={tag}
               onClick={() => setTabAttiva(tag)}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors capitalize ${tabAttiva === tag ? 'border-emerald-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tabAttiva === tag ? 'border-emerald-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
-              {tag}
+              <span className="inline-flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${tagColor(tag).dot}`} />
+                {String(tag).toUpperCase()}
+              </span>
             </button>
           ))}
         </div>
@@ -222,8 +242,9 @@ export default function Documentazione() {
                     <span className="text-xs text-gray-400">{fmt(d.created_at)}</span>
                     {(d.tags || []).slice(0, 3).map(t => (
                       <span key={t} onClick={() => setTabAttiva(String(t).toLowerCase())}
-                        className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full cursor-pointer hover:bg-emerald-100 hover:text-emerald-700 capitalize">
-                        {t}
+                        className={`text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full cursor-pointer ring-1 ${tagColor(t).bg} ${tagColor(t).text} ${tagColor(t).ring} hover:opacity-90`}
+                      >
+                        {String(t).toUpperCase()}
                       </span>
                     ))}
                   </div>
