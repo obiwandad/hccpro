@@ -508,19 +508,21 @@ export default function DDT() {
             </button>
             <button
               type="button"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-60"
               onClick={() => save('download')}
               disabled={busy}
             >
-              Salva e stampa
+              <Icon name="file" className="w-4 h-4" />
+              Salva e scarica PDF
             </button>
             <button
               type="button"
-              className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-60"
               onClick={() => save('documentazione')}
               disabled={busy}
             >
-              Salva e invia
+              <Icon name="documentazione" className="w-4 h-4" />
+              Salva e invia a Documentazione
             </button>
           </div>
         </div>
@@ -865,19 +867,21 @@ export default function DDT() {
                   </button>
                   <button
                     type="button"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium text-sm"
+                    className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl font-medium text-sm transition-colors disabled:opacity-50"
                     onClick={() => doPrint(d)}
                     disabled={saving || docSending}
                   >
-                    Stampa
+                    <Icon name="file" className="w-4 h-4" />
+                    Scarica PDF
                   </button>
                   <button
                     type="button"
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl font-medium text-sm"
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl font-medium text-sm transition-colors disabled:opacity-50"
                     onClick={() => sendToDoc(d)}
                     disabled={saving || docSending}
                   >
-                    Invia
+                    <Icon name="documentazione" className="w-4 h-4" />
+                    Invia a Documentazione
                   </button>
                   <button
                     type="button"
