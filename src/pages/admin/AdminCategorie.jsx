@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
 
 const ICONE = ['📦', '🥩', '🥦', '🐟', '🥛', '🧀', '🥚', '🍞', '🧴', '🫙', '🥫', '🍷', '🧂', '🫒', '🌿', '🍋', '🥐', '🍖', '🦐', '🧊']
 
@@ -67,7 +68,7 @@ export default function AdminCategorie() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🏷️ Categorie Prodotti</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="categorie" className="w-7 h-7 text-emerald-600" /> Categorie Prodotti</h1>
           <p className="text-gray-500 mt-1">Organizza i prodotti per categoria</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}
@@ -110,7 +111,7 @@ export default function AdminCategorie() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {categorie.length === 0 ? (
           <div className="p-8 text-center text-gray-400">
-            <p className="text-3xl mb-2">🏷️</p>
+            <Icon name="categorie" className="w-8 h-8 text-gray-300 mb-2 mx-auto" />
             <p>Nessuna categoria configurata</p>
             <p className="text-sm mt-1">Es. Carne, Verdure, Pesce, Latticini...</p>
           </div>

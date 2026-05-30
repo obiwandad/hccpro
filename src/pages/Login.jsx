@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { Icon } from '../lib/icons'
 
 export default function Login() {
   const { login } = useAuth()
@@ -93,7 +94,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl mb-4">
-            <span className="text-3xl">🍽️</span>
+            <Icon name="logo" className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-800">HACCPro</h1>
           <p className="text-gray-500 mt-1">Gestione sicurezza alimentare</p>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useLocale } from '../context/LocaleContext'
+import { Icon } from '../lib/icons'
 
 export default function Pulizie() {
   const { user } = useAuth()
@@ -64,7 +65,7 @@ export default function Pulizie() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">🧹 Pulizie</h1>
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="pulizie" className="w-7 h-7 text-emerald-600" /> Pulizie</h1>
         <p className="text-gray-500 mt-1">Checklist pulizie del giorno</p>
       </div>
 
@@ -98,7 +99,7 @@ export default function Pulizie() {
                     className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${done ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}>
                     <div className="flex items-center gap-3">
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${done ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}>
-                        {done && <span className="text-white text-xs">✓</span>}
+                        {done && <Icon name="checkmark" className="w-4 h-4 text-white" />}
                       </div>
                       <div>
                         <p className={`font-medium ${done ? 'text-emerald-700 line-through' : 'text-gray-800'}`}>{task.nome}</p>
@@ -109,7 +110,7 @@ export default function Pulizie() {
                         )}
                       </div>
                     </div>
-                    {done && <span className="text-emerald-500 text-lg">✓</span>}
+                    {done && <Icon name="check" className="w-5 h-5 text-emerald-500" />}
                   </div>
                 )
               })}

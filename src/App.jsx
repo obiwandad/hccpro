@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { useLocale } from './context/LocaleContext'
 import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -7,6 +8,9 @@ import Tracciabilita from './pages/Tracciabilita'
 import Temperature from './pages/Temperature'
 import Pulizie from './pages/Pulizie'
 import Etichette from './pages/Etichette'
+import Incassi from './pages/Incassi'
+import Documentazione from './pages/Documentazione'
+import DDT from './pages/DDT'
 import TracciabilitaQR from './pages/TracciabilitaQR'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminLocali from './pages/admin/AdminLocali'
@@ -26,6 +30,14 @@ const ProtectedRoute = ({ children }) => {
   return children
 }
 
+// Blocca l'accesso diretto via URL a una sezione disattivata per il locale attivo
+const FeatureRoute = ({ feature, children }) => {
+  const { loading, isFeatureEnabled } = useLocale()
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-500">Caricamento...</div>
+  if (!isFeatureEnabled(feature)) return <Navigate to="/dashboard" replace />
+  return children
+}
+
 export default function App() {
   return (
     <Routes>
@@ -41,10 +53,13 @@ export default function App() {
       }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="tracciabilita" element={<Tracciabilita />} />
-        <Route path="temperature" element={<Temperature />} />
-        <Route path="pulizie" element={<Pulizie />} />
-        <Route path="etichette" element={<Etichette />} />
+        <Route path="tracciabilita" element={<FeatureRoute feature="tracciabilita"><Tracciabilita /></FeatureRoute>} />
+        <Route path="temperature" element={<FeatureRoute feature="temperature"><Temperature /></FeatureRoute>} />
+        <Route path="pulizie" element={<FeatureRoute feature="pulizie"><Pulizie /></FeatureRoute>} />
+        <Route path="etichette" element={<FeatureRoute feature="etichette"><Etichette /></FeatureRoute>} />
+        <Route path="incassi" element={<FeatureRoute feature="incassi"><Incassi /></FeatureRoute>} />
+        <Route path="ddt" element={<FeatureRoute feature="ddt"><DDT /></FeatureRoute>} />
+        <Route path="documentazione" element={<FeatureRoute feature="documentazione"><Documentazione /></FeatureRoute>} />
         <Route path="admin" element={<AdminDashboard />} />
         <Route path="admin/locali" element={<AdminLocali />} />
         <Route path="admin/utenti" element={<AdminUtenti />} />

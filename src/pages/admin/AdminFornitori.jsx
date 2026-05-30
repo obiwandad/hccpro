@@ -2,6 +2,34 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
+
+// #region debug-point E:fornitori-submit
+const __DBG_URL = import.meta.env.VITE_DEBUG_SERVER_URL || ''
+const __DBG_SESSION = import.meta.env.VITE_DEBUG_SESSION || 'dev'
+const __DBG_RUN = import.meta.env.VITE_DEBUG_RUN || 'dev'
+const __DBG_ENABLED = !!__DBG_URL
+const __dbg = (hypothesisId, msg, data) => {
+  if (!__DBG_ENABLED) return
+  try {
+    fetch(__DBG_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: __DBG_SESSION,
+        runId: __DBG_RUN,
+        hypothesisId,
+        location: 'src/pages/admin/AdminFornitori.jsx',
+        msg: `[DEBUG] ${msg}`,
+        data: data || {},
+        ts: Date.now(),
+      }),
+    }).catch(() => {})
+  } catch {
+    void 0
+  }
+}
+// #endregion
 
 export default function AdminFornitori() {
   const { user } = useAuth()
@@ -13,6 +41,7 @@ export default function AdminFornitori() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ nome: '', telefono: '', email: '', note: '' })
+  const [submitError, setSubmitError] = useState('')
 
   const fetchFornitori = async (locale_id) => {
     const { data } = await supabase.from('fornitori').select('*').eq('locale_id', locale_id).order('nome')
@@ -57,12 +86,18 @@ export default function AdminFornitori() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setSubmitError('')
     const localeId = activeLocaleId ?? profilo?.locale_id
     if (!localeId) return
+    __dbg('E', 'submit start', { editingId, localeId, form })
     if (editingId) {
-      await supabase.from('fornitori').update(form).eq('id', editingId)
+      const { error } = await supabase.from('fornitori').update(form).eq('id', editingId)
+      __dbg(error ? 'A' : 'E', 'update result', { editingId, ok: !error, error: error?.message || null })
+      if (error) { setSubmitError(error.message); return }
     } else {
-      await supabase.from('fornitori').insert({ ...form, locale_id: localeId })
+      const { error } = await supabase.from('fornitori').insert({ ...form, locale_id: localeId })
+      __dbg(error ? 'A' : 'E', 'insert result', { ok: !error, error: error?.message || null })
+      if (error) { setSubmitError(error.message); return }
     }
     await fetchFornitori(localeId)
     resetForm()
@@ -87,7 +122,7 @@ export default function AdminFornitori() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🚚 Gestione Fornitori</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="fornitori" className="w-7 h-7 text-emerald-600" /> Gestione Fornitori</h1>
           <p className="text-gray-500 mt-1">Fornitori e prodotti associati</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}
@@ -99,6 +134,11 @@ export default function AdminFornitori() {
       {showForm && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
           <h2 className="font-semibold text-gray-700 mb-4">{editingId ? 'Modifica fornitore' : 'Nuovo fornitore'}</h2>
+          {submitError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -139,7 +179,7 @@ export default function AdminFornitori() {
       <div className="space-y-3">
         {fornitori.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
-            <p className="text-3xl mb-2">🚚</p>
+            <Icon name="fornitori" className="w-8 h-8 text-gray-300 mb-2 mx-auto" />
             <p>Nessun fornitore configurato</p>
             <p className="text-sm mt-1">Aggiungi i tuoi fornitori abituali</p>
           </div>
@@ -150,8 +190,8 @@ export default function AdminFornitori() {
                 <div className="flex-1 cursor-pointer" onClick={() => toggleFornitore(f)}>
                   <p className="font-semibold text-gray-800">{f.nome}</p>
                   <div className="flex gap-3 mt-0.5">
-                    {f.telefono && <p className="text-sm text-gray-500">📞 {f.telefono}</p>}
-                    {f.email && <p className="text-sm text-gray-500">✉️ {f.email}</p>}
+                    {f.telefono && <p className="text-sm text-gray-500"><Icon name="phone" className="w-4 h-4 inline-block align-[-3px] mr-1" />{f.telefono}</p>}
+                    {f.email && <p className="text-sm text-gray-500"><Icon name="mail" className="w-4 h-4 inline-block align-[-3px] mr-1" />{f.email}</p>}
                   </div>
                   {f.note && <p className="text-xs text-gray-400 mt-1 italic">{f.note}</p>}
                 </div>

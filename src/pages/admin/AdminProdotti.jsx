@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
 
 export default function AdminProdotti() {
   const { user } = useAuth()
@@ -126,7 +127,7 @@ export default function AdminProdotti() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🥕 Gestione Prodotti</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="prodotti" className="w-7 h-7 text-emerald-600" /> Gestione Prodotti</h1>
           <p className="text-gray-500 mt-1">Ingredienti e materie prime</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}
@@ -171,7 +172,7 @@ export default function AdminProdotti() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">⚠️ Allergeni presenti</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5"><Icon name="alert" className="w-4 h-4" />Allergeni presenti</label>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {allergeni.map((a) => (
                   <label key={a.id} className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-colors ${allergeniSelezionati.includes(a.id) ? 'bg-amber-50 border-amber-300' : 'border-gray-200 hover:border-gray-300'}`}>
@@ -235,7 +236,7 @@ export default function AdminProdotti() {
                     <p className="font-medium text-gray-800">{p.nome}</p>
                     <div className="flex gap-3 mt-0.5">
                       {p.categorie?.nome && <span className="text-xs text-gray-500">{p.categorie.nome}</span>}
-                      {p.fornitori?.nome && <span className="text-xs text-gray-500">🚚 {p.fornitori.nome}</span>}
+                      {p.fornitori?.nome && <span className="text-xs text-gray-500"><Icon name="fornitori" className="w-4 h-4 inline-block align-[-3px] mr-1" />{p.fornitori.nome}</span>}
                       <span className="text-xs text-gray-400">scad. +{p.giorni_scadenza_default}gg</span>
                     </div>
                     {p.prodotti_allergeni?.length > 0 && (

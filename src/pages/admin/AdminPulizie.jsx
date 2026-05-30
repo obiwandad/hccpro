@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
 
 export default function AdminPulizie() {
   const { user } = useAuth()
@@ -71,7 +72,7 @@ export default function AdminPulizie() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🧹 Task Pulizie</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="task-pulizie" className="w-7 h-7 text-emerald-600" /> Task Pulizie</h1>
           <p className="text-gray-500 mt-1">Configura la checklist pulizie</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}

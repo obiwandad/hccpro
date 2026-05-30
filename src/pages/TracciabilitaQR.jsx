@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { Icon } from '../lib/icons'
 
 const CACHE_KEY = (lotto) => `haccpro.qr.pin.${lotto}`
 const PIN_EXPIRY_MS = 4 * 60 * 60 * 1000 // 4 ore
@@ -13,6 +14,72 @@ export default function TracciabilitaQR() {
   const [pinLoading, setPinLoading] = useState(false)
   const [data, setData] = useState(null)
   const [allegatiUrl, setAllegatiUrl] = useState({}) // path → signedUrl
+
+  const loadTracciabilita = useCallback(async (localeId) => {
+    setStep('loading')
+    try {
+      const { data: etichetta } = await supabase
+        .from('etichette')
+        .select(`
+          id, numero_lotto, data_produzione, data_scadenza,
+          produzioni(
+            id, quantita_prodotta, note,
+            ricette(
+              id, nome, giorni_scadenza_sottovuoto,
+              ricette_ingredienti(
+                id, quantita, unita,
+                prodotti(
+                  id, nome,
+                  categorie(nome, icona),
+                  fornitori(nome, telefono)
+                )
+              )
+            )
+          ),
+          profili(nome),
+          locali(nome)
+        `)
+        .eq('numero_lotto', lotto)
+        .eq('locale_id', localeId)
+        .single()
+
+      if (!etichetta) { setStep('error'); return }
+
+      const ricetta = etichetta.produzioni?.ricette
+      const ingredienti = ricetta?.ricette_ingredienti || []
+      const dataProd = etichetta.data_produzione
+
+      const arriviPerIngrediente = await Promise.all(
+        ingredienti.map(async (ing) => {
+          const { data: arrivi } = await supabase
+            .from('arrivi_merci')
+            .select('id, data_arrivo, scadenza, lotto, note, allegati')
+            .eq('prodotto_id', ing.prodotti.id)
+            .eq('locale_id', localeId)
+            .lte('data_arrivo', dataProd)
+            .order('data_arrivo', { ascending: false })
+            .limit(1)
+
+          return {
+            ...ing,
+            arrivo: arrivi?.[0] || null,
+          }
+        })
+      )
+
+      setData({
+        etichetta,
+        ricetta,
+        ingredienti: arriviPerIngrediente,
+        locale: etichetta.locali?.nome,
+        operatore: etichetta.profili?.nome,
+      })
+      setStep('data')
+    } catch (e) {
+      console.error(e)
+      setStep('error')
+    }
+  }, [lotto])
 
   // Controlla se c'è un PIN cached valido
   useEffect(() => {
@@ -28,7 +95,7 @@ export default function TracciabilitaQR() {
         localStorage.removeItem(CACHE_KEY(lotto))
       }
     }
-  }, [lotto])
+  }, [lotto, loadTracciabilita])
 
   const verificaPin = async () => {
     if (pin.length < 4) { setPinError('Inserisci il PIN del locale'); return }
@@ -78,74 +145,6 @@ export default function TracciabilitaQR() {
     loadTracciabilita(localeId)
   }
 
-  const loadTracciabilita = async (localeId) => {
-    setStep('loading')
-    try {
-      // 1. Trova etichetta + produzione
-      const { data: etichetta } = await supabase
-        .from('etichette')
-        .select(`
-          id, numero_lotto, data_produzione, data_scadenza,
-          produzioni(
-            id, quantita_prodotta, note,
-            ricette(
-              id, nome, giorni_scadenza_sottovuoto,
-              ricette_ingredienti(
-                id, quantita, unita,
-                prodotti(
-                  id, nome,
-                  categorie(nome, icona),
-                  fornitori(nome, telefono)
-                )
-              )
-            )
-          ),
-          profili(nome),
-          locali(nome)
-        `)
-        .eq('numero_lotto', lotto)
-        .eq('locale_id', localeId)
-        .single()
-
-      if (!etichetta) { setStep('error'); return }
-
-      const ricetta = etichetta.produzioni?.ricette
-      const ingredienti = ricetta?.ricette_ingredienti || []
-      const dataProd = etichetta.data_produzione
-
-      // 2. Per ogni ingrediente trova l'arrivo merci più recente ≤ data produzione
-      const arriviPerIngrediente = await Promise.all(
-        ingredienti.map(async (ing) => {
-          const { data: arrivi } = await supabase
-            .from('arrivi_merci')
-            .select('id, data_arrivo, scadenza, lotto, note, allegati')
-            .eq('prodotto_id', ing.prodotti.id)
-            .eq('locale_id', localeId)
-            .lte('data_arrivo', dataProd)
-            .order('data_arrivo', { ascending: false })
-            .limit(1)
-
-          return {
-            ...ing,
-            arrivo: arrivi?.[0] || null,
-          }
-        })
-      )
-
-      setData({
-        etichetta,
-        ricetta,
-        ingredienti: arriviPerIngrediente,
-        locale: etichetta.locali?.nome,
-        operatore: etichetta.profili?.nome,
-      })
-      setStep('data')
-    } catch (e) {
-      console.error(e)
-      setStep('error')
-    }
-  }
-
   const getSignedUrl = async (path) => {
     if (allegatiUrl[path]) {
       window.open(allegatiUrl[path], '_blank')
@@ -178,7 +177,7 @@ export default function TracciabilitaQR() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-6">
           <div className="text-center mb-6">
-            <div className="text-4xl mb-3">🔍</div>
+            <Icon name="search" className="w-9 h-9 text-gray-400 mb-3 mx-auto" />
             <h1 className="text-xl font-bold text-gray-800">Tracciabilità</h1>
             <p className="text-sm text-gray-500 mt-1">Lotto: <span className="font-mono font-semibold text-gray-700">{lotto}</span></p>
             <p className="text-xs text-gray-400 mt-2">Inserisci il PIN del locale per visualizzare i dati</p>
@@ -237,7 +236,7 @@ export default function TracciabilitaQR() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center text-gray-500">
-          <div className="text-4xl mb-3 animate-pulse">🔍</div>
+          <Icon name="search" className="w-9 h-9 text-gray-400 mb-3 mx-auto animate-pulse" />
           <p>Caricamento tracciabilità...</p>
         </div>
       </div>
@@ -249,7 +248,7 @@ export default function TracciabilitaQR() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center text-gray-500">
-          <div className="text-4xl mb-3">❌</div>
+          <Icon name="error" className="w-9 h-9 text-red-500 mb-3 mx-auto" />
           <p className="font-semibold text-gray-700">Lotto non trovato</p>
           <p className="text-sm mt-1">Il lotto <span className="font-mono">{lotto}</span> non esiste o non è accessibile.</p>
           <button onClick={() => { setStep('pin'); setPin(''); setPinError('') }}
@@ -271,7 +270,7 @@ export default function TracciabilitaQR() {
       <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-0 z-10 shadow-sm">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-gray-800 text-lg">🔍 Tracciabilità</h1>
+            <h1 className="font-bold text-gray-800 text-lg flex items-center gap-2"><Icon name="search" className="w-5 h-5 text-emerald-600" /> Tracciabilità</h1>
             <p className="text-xs text-gray-400 font-mono">{lotto}</p>
           </div>
           <div className="text-right">
@@ -312,7 +311,7 @@ export default function TracciabilitaQR() {
         {/* Ingredienti + arrivi */}
         <div>
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
-            📦 Tracciabilità ingredienti ({ingredienti.length})
+            <Icon name="tracciabilita" className="w-4 h-4 inline-block align-[-3px] mr-1" />Tracciabilità ingredienti ({ingredienti.length})
           </p>
           <div className="space-y-2">
             {ingredienti.map((ing, i) => {
@@ -332,7 +331,7 @@ export default function TracciabilitaQR() {
                         )}
                         {prodotto?.fornitori?.nome && (
                           <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                            🚚 {prodotto.fornitori.nome}
+                            <Icon name="fornitori" className="w-4 h-4 inline-block align-[-3px] mr-1" />{prodotto.fornitori.nome}
                           </span>
                         )}
                       </div>

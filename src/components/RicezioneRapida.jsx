@@ -1,10 +1,11 @@
+import { Icon } from '../lib/icons'
 export default function RicezioneRapida({ onComplete, onCancel }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">⚡ Ricezione rapida</h2>
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2"><Icon name="bolt" className="w-5 h-5 text-emerald-600" /> Ricezione rapida</h2>
             <p className="text-sm text-gray-500 mt-1">
               Questa sezione non è ancora implementata. Puoi comunque usare la modalità singola.
             </p>

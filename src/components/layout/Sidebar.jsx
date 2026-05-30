@@ -1,43 +1,109 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
 import { useEffect, useState } from 'react'
 
 const menuOperatore = [
-  { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-  { path: '/tracciabilita', icon: '📦', label: 'Tracciabilità' },
-  { path: '/temperature', icon: '🌡️', label: 'Temperature' },
-  { path: '/pulizie', icon: '🧹', label: 'Pulizie' },
-  { path: '/etichette', icon: '🏷️', label: 'Etichette' },
+  { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
+  { path: '/incassi', icon: 'incassi', label: 'Incassi' },
+  { path: '/tracciabilita', icon: 'tracciabilita', label: 'Tracciabilità' },
+  { path: '/temperature', icon: 'temperature', label: 'Temperature' },
+  { path: '/pulizie', icon: 'pulizie', label: 'Pulizie' },
+  { path: '/etichette', icon: 'etichette', label: 'Etichette' },
+  { path: '/ddt', icon: 'ddt', label: 'DDT' },
+  { path: '/documentazione', icon: 'documentazione', label: 'Documentazione' },
 ]
 
 const menuAdmin = [
-  { path: '/admin', icon: '📊', label: 'Admin Dashboard' },
-  { path: '/admin/locali', icon: '🏠', label: 'Locali' },
-  { path: '/admin/utenti', icon: '👥', label: 'Utenti' },
-  { path: '/admin/categorie', icon: '🏷️', label: 'Categorie' },
-  { path: '/admin/fornitori', icon: '🚚', label: 'Fornitori' },
-  { path: '/admin/prodotti', icon: '🥕', label: 'Prodotti' },
-  { path: '/admin/ricette', icon: '🍽️', label: 'Ricette' },
-  { path: '/admin/zone-temperatura', icon: '🌡️', label: 'Zone Temperatura' },
-  { path: '/admin/pulizie', icon: '🧹', label: 'Task Pulizie' },
-  { path: '/admin/template-etichette', icon: '🧾', label: 'Template Etichette' },
+  { type: 'item', path: '/admin', icon: 'dashboard', label: 'Dashboard', end: true },
+  {
+    type: 'group', id: 'struttura', icon: 'struttura', label: 'Struttura',
+    children: [
+      { path: '/admin/locali', icon: 'locali', label: 'Locali' },
+      { path: '/admin/utenti', icon: 'utenti', label: 'Utenti' },
+    ]
+  },
+  {
+    type: 'group', id: 'anagrafica', icon: 'anagrafica', label: 'Anagrafica',
+    children: [
+      { path: '/admin/categorie', icon: 'categorie', label: 'Categorie' },
+      { path: '/admin/fornitori', icon: 'fornitori', label: 'Fornitori' },
+      { path: '/admin/prodotti', icon: 'prodotti', label: 'Prodotti' },
+      { path: '/admin/ricette', icon: 'ricette', label: 'Ricette' },
+    ]
+  },
+  {
+    type: 'group', id: 'config', icon: 'config', label: 'Configurazione',
+    children: [
+      { path: '/admin/zone-temperatura', icon: 'zone-temperatura', label: 'Zone Temperatura' },
+      { path: '/admin/pulizie', icon: 'task-pulizie', label: 'Task Pulizie' },
+      { path: '/admin/template-etichette', icon: 'template-etichette', label: 'Template Etichette' },
+    ]
+  },
 ]
+
+function NavItem({ path, icon, label, end = false, sub = false }) {
+  return (
+    <NavLink
+      to={path}
+      end={end}
+      className={({ isActive }) =>
+        `flex items-center gap-3 rounded-xl text-sm font-medium transition-colors
+        ${sub ? 'px-3 py-2' : 'px-4 py-2.5'}
+        ${isActive
+          ? 'bg-emerald-500 text-white'
+          : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+        }`
+      }
+    >
+      <Icon name={icon} className={sub ? 'w-4 h-4' : 'w-5 h-5'} />
+      {label}
+    </NavLink>
+  )
+}
+
+function GroupItem({ group, location }) {
+  const isAnyChildActive = group.children.some(c => location.pathname === c.path)
+  const [open, setOpen] = useState(isAnyChildActive)
+
+  useEffect(() => {
+    if (isAnyChildActive) setOpen(true)
+  }, [isAnyChildActive, location.pathname])
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Icon name={group.icon} className="w-5 h-5" />
+          {group.label}
+        </div>
+        <span className={`text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && (
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-gray-700 pl-2">
+          {group.children.map(c => (
+            <NavItem key={c.path} {...c} sub />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Sidebar() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { profilo, locali, activeLocaleId, setActiveLocaleId, activeLocaleName } = useLocale()
+  const { profilo, activeLocaleName, isFeatureEnabled } = useLocale()
   const [menuAperto, setMenuAperto] = useState('operatore')
 
   useEffect(() => {
     if (profilo?.ruolo !== 'admin') return
-    if (location.pathname.startsWith('/admin')) {
-      setMenuAperto('admin')
-      return
-    }
-    setMenuAperto('operatore')
+    setMenuAperto(location.pathname.startsWith('/admin') ? 'admin' : 'operatore')
   }, [location.pathname, profilo?.ruolo])
 
   const handleLogout = async () => {
@@ -47,117 +113,55 @@ export default function Sidebar() {
 
   return (
     <div className="w-64 bg-gray-900 min-h-screen flex flex-col">
-      
+
       {/* Logo */}
       <div className="p-6 border-b border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl">
-            🍽️
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+            <Icon name="logo" className="w-6 h-6" />
           </div>
-          <div>
-            <h1 className="text-white font-bold text-lg">HACCPro</h1>
-            {profilo?.ruolo === 'admin' && locali.length > 0 ? (
-              <select
-                className="mt-1 w-full max-w-[12rem] rounded-lg bg-gray-800 px-2 py-1 text-xs text-gray-200 ring-1 ring-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                value={activeLocaleId ?? ''}
-                onChange={(e) => setActiveLocaleId(e.target.value)}
-              >
-                {locali.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nome}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-gray-400 text-xs">{activeLocaleName}</p>
-            )}
-          </div>
+          <h1 className="text-white font-bold text-lg">HACCPro</h1>
         </div>
+        <p className="mt-3 text-emerald-400 font-bold text-xl leading-tight break-words">
+          {activeLocaleName || '—'}
+        </p>
       </div>
 
-      {/* Menu toggle se admin */}
+      {/* Toggle Cucina / Admin */}
       {profilo?.ruolo === 'admin' && (
-        <div className="flex m-4 bg-gray-800 rounded-xl p-1">
+        <div className="flex m-4 bg-gray-800 rounded-xl p-1 gap-1">
           <button
-            onClick={() => setMenuAperto('operatore')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              menuAperto === 'operatore'
-                ? 'bg-emerald-500 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
+            onClick={() => { setMenuAperto('operatore'); navigate('/dashboard') }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${menuAperto === 'operatore' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
           >
-            Cucina
+            <Icon name="cucina" className="w-4 h-4" /> Cucina
           </button>
           <button
-            onClick={() => setMenuAperto('admin')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              menuAperto === 'admin'
-                ? 'bg-emerald-500 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
+            onClick={() => { setMenuAperto('admin'); navigate('/admin') }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${menuAperto === 'admin' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
           >
-            Admin
+            <Icon name="admin" className="w-4 h-4" /> Admin
           </button>
         </div>
       )}
 
-      {/* Menu items */}
-      <nav className="flex-1 bg-gray-900 px-4 py-2">
-        {profilo?.ruolo === 'admin' && menuAperto === 'admin' ? null : (
-          <>
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Cucina</p>
-            <div className="space-y-1">
-              {menuOperatore.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-emerald-500 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                    }`
-                  }
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          </>
+      {/* Nav */}
+      <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto">
+        {menuAperto === 'operatore' && menuOperatore
+          .filter(item => item.path === '/dashboard' || isFeatureEnabled(item.path.slice(1)))
+          .map(item => (
+            <NavItem key={item.path} {...item} />
+          ))}
+
+        {menuAperto === 'admin' && menuAdmin.map(item =>
+          item.type === 'group'
+            ? <GroupItem key={item.id} group={item} location={location} />
+            : <NavItem key={item.path} {...item} />
         )}
-
-        {profilo?.ruolo === 'admin' && menuAperto === 'admin' ? (
-          <>
-            <p className="mt-1 px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Admin</p>
-            <div className="space-y-1">
-              {menuAdmin.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === '/admin'}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-emerald-500 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                    }`
-                  }
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {profilo?.ruolo === 'admin' ? null : null}
       </nav>
 
-
       {/* Utente + Logout */}
-      <div className="bg-gray-900 p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-gray-700">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {profilo?.nome?.charAt(0).toUpperCase()}
@@ -171,8 +175,7 @@ export default function Sidebar() {
           onClick={handleLogout}
           className="w-full flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl text-sm transition-colors"
         >
-          <span>🚪</span>
-          Esci
+          <Icon name="logout" className="w-4 h-4" /> Esci
         </button>
       </div>
     </div>

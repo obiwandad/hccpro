@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useLocale } from '../../context/LocaleContext'
+import { Icon } from '../../lib/icons'
 
 export default function AdminRicette() {
   const { user } = useAuth()
@@ -14,6 +15,9 @@ export default function AdminRicette() {
   const [ricettaAperta, setRicettaAperta] = useState(null)
   const [form, setForm] = useState({ nome: '', descrizione: '', giorni_scadenza_sottovuoto: 7, peso_porzione_g: '' })
   const [ingredientiForm, setIngredientiForm] = useState([{ prodotto_id: '', quantita: '', unita: 'g' }])
+  const [ingredientiLoading, setIngredientiLoading] = useState(false)
+  const [ingredientiError, setIngredientiError] = useState('')
+  const [submitError, setSubmitError] = useState('')
 
   const fetchRicette = async (locale_id) => {
     const { data } = await supabase
@@ -37,7 +41,9 @@ export default function AdminRicette() {
     if (user) init()
   }, [activeLocaleId, user])
 
-  const handleEdit = (r) => {
+  const handleEdit = async (r) => {
+    setIngredientiError('')
+    setSubmitError('')
     setForm({
       nome: r.nome,
       descrizione: r.descrizione || '',
@@ -51,6 +57,29 @@ export default function AdminRicette() {
     )
     setEditingId(r.id)
     setShowForm(true)
+
+    setIngredientiLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('ricette_ingredienti')
+        .select('prodotto_id, quantita, unita')
+        .eq('ricetta_id', r.id)
+      if (error) {
+        setIngredientiError(error.message)
+        return
+      }
+      if ((data || []).length > 0) {
+        setIngredientiForm((data || []).map(i => ({
+          prodotto_id: i.prodotto_id,
+          quantita: i.quantita != null ? String(i.quantita) : '',
+          unita: i.unita || 'g',
+        })))
+      } else {
+        setIngredientiForm([{ prodotto_id: '', quantita: '', unita: 'g' }])
+      }
+    } finally {
+      setIngredientiLoading(false)
+    }
   }
 
   const addIngrediente = () => setIngredientiForm([...ingredientiForm, { prodotto_id: '', quantita: '', unita: 'g' }])
@@ -61,8 +90,19 @@ export default function AdminRicette() {
     setIngredientiForm(updated)
   }
 
+  const normalizeQuantita = (raw) => {
+    if (raw == null) return 1
+    const s = String(raw).trim()
+    if (s === '') return 1
+    const n = Number(s)
+    if (!Number.isFinite(n)) return 1
+    if (n <= 0) return 1
+    return n
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setSubmitError('')
     const localeId = activeLocaleId ?? profilo?.locale_id
     if (!localeId) return
     const payload = {
@@ -71,24 +111,39 @@ export default function AdminRicette() {
       giorni_scadenza_sottovuoto: form.giorni_scadenza_sottovuoto,
       peso_porzione_g: form.peso_porzione_g || null,
     }
-    const validi = ingredientiForm.filter(i => i.prodotto_id && i.quantita)
+    const validi = ingredientiForm.filter(i => i.prodotto_id)
 
     if (editingId) {
-      await supabase.from('ricette').update(payload).eq('id', editingId)
-      await supabase.from('ricette_ingredienti').delete().eq('ricetta_id', editingId)
+      const { error: updateErr } = await supabase.from('ricette').update(payload).eq('id', editingId)
+      if (updateErr) { setSubmitError(updateErr.message); return }
+      const { error: delErr } = await supabase.from('ricette_ingredienti').delete().eq('ricetta_id', editingId)
+      if (delErr) { setSubmitError(delErr.message); return }
       if (validi.length > 0) {
-        await supabase.from('ricette_ingredienti').insert(
-          validi.map(i => ({ ricetta_id: editingId, prodotto_id: i.prodotto_id, quantita: parseFloat(i.quantita), unita: i.unita }))
+        const { error: insErr } = await supabase.from('ricette_ingredienti').insert(
+          validi.map(i => ({
+            ricetta_id: editingId,
+            prodotto_id: i.prodotto_id,
+            quantita: normalizeQuantita(i.quantita),
+            unita: i.unita || 'g',
+          }))
         )
+        if (insErr) { setSubmitError(insErr.message); return }
       }
     } else {
-      const { data: ricetta } = await supabase.from('ricette').insert({
+      const { data: ricetta, error: createErr } = await supabase.from('ricette').insert({
         ...payload, locale_id: localeId,
       }).select().single()
+      if (createErr) { setSubmitError(createErr.message); return }
       if (ricetta && validi.length > 0) {
-        await supabase.from('ricette_ingredienti').insert(
-          validi.map(i => ({ ricetta_id: ricetta.id, prodotto_id: i.prodotto_id, quantita: parseFloat(i.quantita), unita: i.unita }))
+        const { error: insErr } = await supabase.from('ricette_ingredienti').insert(
+          validi.map(i => ({
+            ricetta_id: ricetta.id,
+            prodotto_id: i.prodotto_id,
+            quantita: normalizeQuantita(i.quantita),
+            unita: i.unita || 'g',
+          }))
         )
+        if (insErr) { setSubmitError(insErr.message); return }
       }
     }
     await fetchRicette(localeId)
@@ -107,6 +162,8 @@ export default function AdminRicette() {
   const resetForm = () => {
     setForm({ nome: '', descrizione: '', giorni_scadenza_sottovuoto: 7, peso_porzione_g: '' })
     setIngredientiForm([{ prodotto_id: '', quantita: '', unita: 'g' }])
+    setIngredientiError('')
+    setSubmitError('')
     setEditingId(null)
     setShowForm(false)
   }
@@ -115,7 +172,7 @@ export default function AdminRicette() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🍽️ Gestione Ricette</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="ricette" className="w-7 h-7 text-emerald-600" /> Gestione Ricette</h1>
           <p className="text-gray-500 mt-1">Piatti e composizioni per le etichette</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}
@@ -127,6 +184,11 @@ export default function AdminRicette() {
       {showForm && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
           <h2 className="font-semibold text-gray-700 mb-4">{editingId ? 'Modifica ricetta' : 'Nuova ricetta'}</h2>
+          {submitError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -156,6 +218,13 @@ export default function AdminRicette() {
                 <label className="text-sm font-medium text-gray-700">Ingredienti</label>
                 <button type="button" onClick={addIngrediente} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">+ Aggiungi</button>
               </div>
+              <p className="text-xs text-gray-400 mb-2">La quantità è facoltativa: se la lasci vuota viene salvata come 1.</p>
+              {(ingredientiLoading || ingredientiError) && (
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{ingredientiLoading ? 'Caricamento ingredienti...' : ''}</span>
+                  {ingredientiError && <span className="text-xs text-red-600">{ingredientiError}</span>}
+                </div>
+              )}
               <div className="space-y-2">
                 {ingredientiForm.map((ing, i) => (
                   <div key={i} className="grid grid-cols-12 gap-2 items-center">

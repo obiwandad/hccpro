@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { Icon } from '../../lib/icons'
 
 export default function AdminUtenti() {
   const [utenti, setUtenti] = useState([])
@@ -36,14 +37,14 @@ export default function AdminUtenti() {
       await supabase.from('profili').update({
         nome: form.nome,
         ruolo: form.ruolo,
-        locale_id: form.locale_id,
+        locale_id: form.locale_id || null,
       }).eq('id', editingId)
     } else {
       await supabase.from('profili').insert({
         user_id: newUserForm.user_id,
         nome: form.nome,
         ruolo: form.ruolo,
-        locale_id: form.locale_id,
+        locale_id: form.locale_id || null,
       })
     }
     await fetchUtenti()
@@ -67,7 +68,7 @@ export default function AdminUtenti() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">👥 Gestione Utenti</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2.5"><Icon name="utenti" className="w-7 h-7 text-emerald-600" /> Gestione Utenti</h1>
           <p className="text-gray-500 mt-1">Operatori e amministratori</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(!showForm) }}
@@ -82,7 +83,7 @@ export default function AdminUtenti() {
 
           {!editingId && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <p className="text-sm text-amber-700 font-medium">💡 Prima crea l&apos;utente su Supabase Dashboard → Authentication → Users → Add user</p>
+              <p className="text-sm text-amber-700 font-medium">Prima crea l&apos;utente su Supabase Dashboard → Authentication → Users → Add user</p>
               <p className="text-sm text-amber-600 mt-1">Poi copia lo User ID e incollalo qui sotto.</p>
             </div>
           )}
@@ -113,12 +114,17 @@ export default function AdminUtenti() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Locale *</label>
-                <select required value={form.locale_id} onChange={e => setForm({ ...form, locale_id: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {form.ruolo === 'admin' ? 'Locale predefinito' : 'Locale *'}
+                </label>
+                <select required={form.ruolo === 'operatore'} value={form.locale_id} onChange={e => setForm({ ...form, locale_id: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                  <option value="">Seleziona locale...</option>
+                  <option value="">{form.ruolo === 'admin' ? 'Tutti i locali' : 'Seleziona locale...'}</option>
                   {locali.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
                 </select>
+                {form.ruolo === 'admin' && (
+                  <p className="text-xs text-gray-400 mt-1">L&apos;admin vede tutti i locali: questo è solo quello mostrato all&apos;accesso.</p>
+                )}
               </div>
             </div>
 
