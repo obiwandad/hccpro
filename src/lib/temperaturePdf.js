@@ -17,7 +17,8 @@ const giorniNelMese = (anno, mese) => new Date(anno, mese + 1, 0).getDate()
 // rilevazioni: array con { data_ora, temperatura, note, zona_id,
 //   zone_temperatura: { nome, soglia_min, soglia_max } }
 // zone: elenco zone del locale [{ id, nome, soglia_min, soglia_max }]
-export function buildTemperaturePDF({ rilevazioni, zone, mese, anno, localeName }) {
+// timbroDataUrl / firmaDataUrl: PNG (data URL) opzionali da apporre in fondo
+export function buildTemperaturePDF({ rilevazioni, zone, mese, anno, localeName, timbroDataUrl, firmaDataUrl }) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 10
@@ -135,13 +136,35 @@ export function buildTemperaturePDF({ rilevazioni, zone, mese, anno, localeName 
         doc.setTextColor(0)
       },
     })
+
+    // Timbro e firma sotto la tabella
+    const afterY = doc.lastAutoTable?.finalY ?? (margin + 40)
+    const pageH = doc.internal.pageSize.getHeight()
+    let blockY = afterY + 6
+    // se non c'è spazio, vanno in fondo alla pagina corrente
+    if (blockY > pageH - 40) blockY = pageH - 40
+
+    if (timbroDataUrl) {
+      try {
+        doc.addImage(timbroDataUrl, 'PNG', margin, blockY, 60, 25)
+      } catch { /* immagine non valida: ignora */ }
+    }
+    if (firmaDataUrl) {
+      try {
+        doc.setFontSize(8)
+        doc.setTextColor(80)
+        doc.text('Firma responsabile:', pageW - margin - 70, blockY + 3)
+        doc.addImage(firmaDataUrl, 'PNG', pageW - margin - 70, blockY + 5, 60, 22)
+        doc.setTextColor(0)
+      } catch { /* ignora */ }
+    }
   })
 
   const fileName = `scheda3-temperature_${localeName ? localeName.replace(/\s+/g, '-') + '_' : ''}${anno}-${String(mese + 1).padStart(2, '0')}.pdf`
   return { doc, fileName }
 }
 
-export function exportTemperaturePDF({ rilevazioni, zone, mese, anno, localeName }) {
-  const { doc, fileName } = buildTemperaturePDF({ rilevazioni, zone, mese, anno, localeName })
+export function exportTemperaturePDF({ rilevazioni, zone, mese, anno, localeName, timbroDataUrl, firmaDataUrl }) {
+  const { doc, fileName } = buildTemperaturePDF({ rilevazioni, zone, mese, anno, localeName, timbroDataUrl, firmaDataUrl })
   doc.save(fileName)
 }

@@ -5,8 +5,24 @@ import { supabase, uploadToDocumentazione } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useLocale } from '../context/LocaleContext'
 import { Icon } from '../lib/icons'
+import { generaTimbroDataUrl } from '../lib/timbro'
 
 const todayKey = () => new Date().toISOString().slice(0, 10)
+
+const urlToDataUrl = async (url) => {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
 
 const makeId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -31,7 +47,7 @@ const fmtDateIt = (dateKey) => {
   return new Date(`${String(dateKey).slice(0, 10)}T12:00:00`).toLocaleDateString('it-IT')
 }
 
-const buildDDTPDF = ({ ddt, localeName }) => {
+const buildDDTPDF = ({ ddt, localeName, timbroDataUrl, firmaDataUrl }) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
@@ -165,7 +181,17 @@ const buildDDTPDF = ({ ddt, localeName }) => {
     y2 += split.length * 4 + 2
   }
 
-  const sigY = Math.min(pageH - 18, Math.max(y2 + 8, pageH - 30))
+  const stampW = 60
+  const stampH = 25
+  const stampX = pageW - margin - stampW
+  const stampY = pageH - margin - stampH
+  const scaleFirma = 0.85
+  const fw = stampW * scaleFirma
+  const fh = stampH * scaleFirma
+  const reserveBottomBlockY = timbroDataUrl
+    ? (stampY - 10 - (firmaDataUrl ? (fh + 4) : 0))
+    : (pageH - 30)
+  const sigY = Math.min(pageH - 18, Math.max(y2 + 8, reserveBottomBlockY))
   doc.setDrawColor(120)
   doc.line(margin, sigY, margin + 70, sigY)
   doc.line(pageW - margin - 70, sigY, pageW - margin, sigY)
@@ -175,12 +201,29 @@ const buildDDTPDF = ({ ddt, localeName }) => {
   doc.text('Firma destinatario', pageW - margin - 70, sigY + 5)
   doc.setTextColor(0)
 
+  if (timbroDataUrl) {
+    try {
+      doc.addImage(timbroDataUrl, 'PNG', stampX, stampY, stampW, stampH)
+    } catch {
+      void 0
+    }
+  }
+  if (timbroDataUrl && firmaDataUrl) {
+    const fx = stampX + (stampW - fw) / 2
+    const fy = Math.max(margin, stampY - 4 - fh)
+    try {
+      doc.addImage(firmaDataUrl, 'PNG', fx, fy, fw, fh)
+    } catch {
+      void 0
+    }
+  }
+
   const fileName = `ddt_${localeName ? localeName.replace(/\s+/g, '-') + '_' : ''}${anno}-${String(numero).padStart(4, '0')}_${String(ddt?.data || '').slice(0, 10)}.pdf`
   return { doc, fileName }
 }
 
-const exportDDTPDF = ({ ddt, localeName }) => {
-  const { doc, fileName } = buildDDTPDF({ ddt, localeName })
+const exportDDTPDF = ({ ddt, localeName, timbroDataUrl, firmaDataUrl }) => {
+  const { doc, fileName } = buildDDTPDF({ ddt, localeName, timbroDataUrl, firmaDataUrl })
   doc.save(fileName)
 }
 
@@ -345,8 +388,26 @@ export default function DDT() {
     return ''
   }
 
-  const doPrint = (ddt) => {
-    exportDDTPDF({ ddt, localeName: activeLocaleName })
+  const loadTimbroFirmaDataUrl = async () => {
+    if (!localeId) return null
+    const { data: loc } = await supabase
+      .from('locali')
+      .select('nome, ragione_sociale, indirizzo, piva_cf, firma_path')
+      .eq('id', localeId)
+      .single()
+    if (!loc) return null
+    const timbroDataUrl = generaTimbroDataUrl({ nome: loc.ragione_sociale || loc.nome, indirizzo: loc.indirizzo, pivaCf: loc.piva_cf })
+    let firmaDataUrl = null
+    if (loc.firma_path) {
+      const { data: signed } = await supabase.storage.from('allegati-merci').createSignedUrl(loc.firma_path, 120)
+      if (signed?.signedUrl) firmaDataUrl = await urlToDataUrl(signed.signedUrl)
+    }
+    return { timbroDataUrl, firmaDataUrl }
+  }
+
+  const doPrint = async (ddt) => {
+    const pack = await loadTimbroFirmaDataUrl()
+    exportDDTPDF({ ddt, localeName: activeLocaleName, timbroDataUrl: pack?.timbroDataUrl || null, firmaDataUrl: pack?.firmaDataUrl || null })
   }
 
   const sendToDoc = async (ddt) => {
@@ -355,7 +416,8 @@ export default function DDT() {
     setDocSendOk('')
     setDocSending(true)
     try {
-      const { doc, fileName } = buildDDTPDF({ ddt, localeName: activeLocaleName })
+      const pack = await loadTimbroFirmaDataUrl()
+      const { doc, fileName } = buildDDTPDF({ ddt, localeName: activeLocaleName, timbroDataUrl: pack?.timbroDataUrl || null, firmaDataUrl: pack?.firmaDataUrl || null })
       const blob = doc.output('blob')
       const file = new File([blob], fileName, { type: 'application/pdf' })
       const titolo = fileName.replace(/\.pdf$/i, '')

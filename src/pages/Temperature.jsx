@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLocale } from '../context/LocaleContext'
 import { Icon } from '../lib/icons'
 import { buildTemperaturePDF, exportTemperaturePDF } from '../lib/temperaturePdf'
+import { generaTimbroDataUrl } from '../lib/timbro'
 
 const weekdays = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM']
 
@@ -33,6 +34,22 @@ const formatLongDateIt = (dayKey) => {
   return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// Scarica un'immagine da URL e la converte in data URL (per inserirla nel PDF)
+const urlToDataUrl = async (url) => {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
 const normalizeConformeNote = (note) => {
   const n = note ?? ''
   const isConforme = n.startsWith('[CONFORME]')
@@ -54,6 +71,7 @@ export default function Temperature() {
   const [dayForm, setDayForm] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [loadError, setLoadError] = useState('')
+  const [docInfo, setDocInfo] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Storico / registro
@@ -64,8 +82,7 @@ export default function Temperature() {
   const [storico, setStorico] = useState([])
   const [storicoLoading, setStoricoLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [exportError, setExportError] = useState('')
-  const [exportOk, setExportOk] = useState('')
+  const [sendingDoc, setSendingDoc] = useState(false)
 
   const fetchMonth = async (localeId, monthStart) => {
     if (!localeId) return
@@ -296,13 +313,31 @@ export default function Temperature() {
 
   const storicoFuoriSoglia = useMemo(() => storico.filter((r) => isFuoriSoglia(r)).length, [storico])
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (storico.length === 0) return
-    setExportError('')
-    setExportOk('')
     setExporting(true)
     try {
-      // Colonne della scheda: se è filtrata una zona, solo quella; altrimenti tutte
+      const localeId = activeLocaleId ?? profilo?.locale_id
+      // dati locale per timbro/firma
+      let timbroDataUrl = null
+      let firmaDataUrl = null
+      if (localeId) {
+        const { data: loc } = await supabase
+          .from('locali')
+          .select('nome, ragione_sociale, indirizzo, piva_cf, firma_path')
+          .eq('id', localeId)
+          .single()
+        if (loc) {
+          timbroDataUrl = generaTimbroDataUrl({ nome: loc.ragione_sociale || loc.nome, indirizzo: loc.indirizzo, pivaCf: loc.piva_cf })
+          if (loc.firma_path) {
+            const { data: signed } = await supabase.storage.from('allegati-merci').createSignedUrl(loc.firma_path, 120)
+            if (signed?.signedUrl) {
+              firmaDataUrl = await urlToDataUrl(signed.signedUrl)
+            }
+          }
+        }
+      }
+
       const zoneColonne = storicoZona ? zone.filter((z) => z.id === storicoZona) : zone
       exportTemperaturePDF({
         rilevazioni: storico,
@@ -310,21 +345,39 @@ export default function Temperature() {
         mese: storicoMese,
         anno: storicoAnno,
         localeName: activeLocaleName || '',
+        timbroDataUrl,
+        firmaDataUrl,
       })
     } finally {
       setExporting(false)
     }
   }
 
-  const handleSendPDF = async () => {
+  const handleSendDocumentazione = async () => {
     if (storico.length === 0) return
-    const localeId = activeLocaleId ?? profilo?.locale_id
-    if (!localeId) return
-
-    setExportError('')
-    setExportOk('')
-    setExporting(true)
+    setLoadError('')
+    setDocInfo('')
+    setSendingDoc(true)
     try {
+      const localeId = activeLocaleId ?? profilo?.locale_id
+      if (!localeId) { setLoadError('Seleziona un locale prima di inviare.'); return }
+      if (!user?.id) { setLoadError('Utente non disponibile.'); return }
+
+      let timbroDataUrl = null
+      let firmaDataUrl = null
+      const { data: loc } = await supabase
+        .from('locali')
+        .select('nome, ragione_sociale, indirizzo, piva_cf, firma_path')
+        .eq('id', localeId)
+        .single()
+      if (loc) {
+        timbroDataUrl = generaTimbroDataUrl({ nome: loc.ragione_sociale || loc.nome, indirizzo: loc.indirizzo, pivaCf: loc.piva_cf })
+        if (loc.firma_path) {
+          const { data: signed } = await supabase.storage.from('allegati-merci').createSignedUrl(loc.firma_path, 120)
+          if (signed?.signedUrl) firmaDataUrl = await urlToDataUrl(signed.signedUrl)
+        }
+      }
+
       const zoneColonne = storicoZona ? zone.filter((z) => z.id === storicoZona) : zone
       const { doc, fileName } = buildTemperaturePDF({
         rilevazioni: storico,
@@ -332,30 +385,30 @@ export default function Temperature() {
         mese: storicoMese,
         anno: storicoAnno,
         localeName: activeLocaleName || '',
+        timbroDataUrl,
+        firmaDataUrl,
       })
 
-      const blob = doc.output('blob')
-      const file = new File([blob], fileName, { type: 'application/pdf' })
-      const titolo = fileName.replace(/\.pdf$/i, '')
+      let blob
+      try {
+        blob = doc.output('blob')
+      } catch {
+        const ab = doc.output('arraybuffer')
+        blob = new Blob([ab], { type: 'application/pdf' })
+      }
 
+      const file = new File([blob], fileName, { type: 'application/pdf' })
       const { error } = await uploadToDocumentazione({
         localeId,
         file,
-        titolo,
+        titolo: fileName.replace(/\.pdf$/i, ''),
         tags: ['temperature'],
-        userId: user?.id || null,
+        userId: user.id,
       })
-
-      if (error) {
-        setExportError(error.message || 'Errore durante l\'invio in Documentazione.')
-        return
-      }
-
-      setExportOk('PDF inviato in Documentazione.')
-    } catch (e) {
-      setExportError(e?.message || 'Errore imprevisto durante l\'invio in Documentazione.')
+      if (error) { setLoadError(error.message || 'Errore durante l\'invio in Documentazione.'); return }
+      setDocInfo('Documento inviato in Documentazione.')
     } finally {
-      setExporting(false)
+      setSendingDoc(false)
     }
   }
 
@@ -375,6 +428,11 @@ export default function Temperature() {
       {loadError ? (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {loadError}
+        </div>
+      ) : null}
+      {docInfo ? (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {docInfo}
         </div>
       ) : null}
 
@@ -559,7 +617,7 @@ export default function Temperature() {
             <button
               type="button"
               onClick={handleExportPDF}
-              disabled={exporting || storico.length === 0}
+              disabled={exporting || sendingDoc || storico.length === 0}
               className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
             >
               <Icon name="file" className="w-4 h-4" />
@@ -567,25 +625,15 @@ export default function Temperature() {
             </button>
             <button
               type="button"
-              onClick={handleSendPDF}
-              disabled={exporting || storico.length === 0}
+              onClick={handleSendDocumentazione}
+              disabled={exporting || sendingDoc || storico.length === 0}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
             >
               <Icon name="documentazione" className="w-4 h-4" />
-              {exporting ? 'Invio...' : 'Invia a Documentazione'}
+              {sendingDoc ? 'Invio...' : 'Invia a Documentazione'}
             </button>
           </div>
         </div>
-
-        {exportError ? (
-          <div className="px-4 py-2.5 bg-red-50 border-b border-red-100 text-sm text-red-700">
-            {exportError}
-          </div>
-        ) : exportOk ? (
-          <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 text-sm text-emerald-700">
-            {exportOk}
-          </div>
-        ) : null}
 
         {storico.length > 0 && (
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-sm text-gray-500 flex gap-6">

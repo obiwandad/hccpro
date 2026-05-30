@@ -42,7 +42,9 @@ export default function Documentazione() {
   const fmt = (iso) => {
     if (!iso) return ''
     const d = new Date(iso)
-    return isNaN(d) ? '' : d.toLocaleDateString('it-IT')
+    return isNaN(d)
+      ? ''
+      : d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
   const fetchDocs = async (lid) => {
