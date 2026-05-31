@@ -8,17 +8,18 @@ const BUCKET = 'allegati-merci'
 
 const TAB_TUTTI = '__tutti__'
 
-const fileIconName = (ct) => {
-  const s = String(ct || '').toLowerCase()
-  if (s.includes('image')) return 'photo'
-  return 'file'
-}
-
 const fileTypeKey = (ct) => {
   const s = String(ct || '').toLowerCase()
   if (s.includes('pdf')) return 'pdf'
   if (s.includes('image')) return 'image'
   return 'other'
+}
+
+const fileIconName = (ct) => {
+  const k = fileTypeKey(ct)
+  if (k === 'image') return 'photo'
+  if (k === 'pdf') return 'note'
+  return 'file'
 }
 
 const TAG_COLORS = [
@@ -465,8 +466,8 @@ export default function Documentazione() {
                   return (
                     <div key={it.id} className="px-4 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <Icon name={fileIconName(it.file?.type)} className="w-5 h-5 text-gray-500" />
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <Icon name={fileIconName(it.file?.type)} className="w-5 h-5 text-white" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <input
@@ -615,29 +616,36 @@ export default function Documentazione() {
                 onClick={() => openDrawer(d)}
                 className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors"
               >
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Icon name={fileIconName(d.content_type)} className="w-5 h-5 text-gray-500" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                  <Icon name={fileIconName(d.content_type)} className="w-5 h-5 text-white" />
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-800 truncate">{d.titolo || d.file_name}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                    <span className="text-xs text-gray-400 truncate">{d.file_name}</span>
-                    <span className="text-xs text-gray-400">{fmt(d.created_at)}</span>
-                    {(d.tags || []).slice(0, 4).map(t => (
-                      <span
-                        key={t}
-                        onClick={(e) => { e.stopPropagation(); setTabAttiva(String(t).toLowerCase()) }}
-                        className={`text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full cursor-pointer ring-1 ${tagColor(t).bg} ${tagColor(t).text} ${tagColor(t).ring} hover:opacity-90`}
-                      >
-                        {String(t).toUpperCase()}
-                      </span>
-                    ))}
-                    {(d.tags || []).length > 4 ? (
-                      <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 ring-1 ring-gray-200">
-                        +{(d.tags || []).length - 4}
-                      </span>
-                    ) : null}
+                  <div className="mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(d.tags || []).length > 0 ? (
+                        <span
+                          onClick={(e) => { e.stopPropagation(); setTabAttiva(String(d.tags?.[0]).toLowerCase()) }}
+                          className={`text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full cursor-pointer ring-1 ${tagColor(d.tags?.[0]).bg} ${tagColor(d.tags?.[0]).text} ${tagColor(d.tags?.[0]).ring} hover:opacity-90`}
+                        >
+                          {String(d.tags?.[0]).toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 ring-1 ring-gray-200">
+                          SENZA TAG
+                        </span>
+                      )}
+                      {(d.tags || []).length > 1 ? (
+                        <span className="text-[11px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 ring-1 ring-gray-200">
+                          +{(d.tags || []).length - 1}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400 truncate">{d.file_name}</span>
+                      <span className="text-xs text-gray-400">{fmt(d.created_at)}</span>
+                    </div>
                   </div>
                 </div>
                 {/* Azioni */}
