@@ -63,7 +63,9 @@ export default function Documentazione() {
   const [q, setQ] = useState('')
   const [tabAttiva, setTabAttiva] = useState(TAB_TUTTI)
 
-  const [dateFilter, setDateFilter] = useState('all') // all | today | week
+  const [dateFilter, setDateFilter] = useState('all') // all | today | yesterday | week | last30 | this_month | last_month | this_year | last_year | range
+  const [dateFrom, setDateFrom] = useState('') // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState('') // YYYY-MM-DD
   const [typeFilter, setTypeFilter] = useState('all') // all | pdf | image | other
   const [sortBy, setSortBy] = useState('date_desc') // date_desc | date_asc | title_asc | title_desc
 
@@ -117,8 +119,37 @@ export default function Documentazione() {
     const qq = q.trim().toLowerCase()
     const now = new Date()
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const startOfYesterday = new Date(startOfToday)
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+
     const startOfWeek = new Date(startOfToday)
     startOfWeek.setDate(startOfWeek.getDate() - 7)
+
+    const startOfLast30 = new Date(startOfToday)
+    startOfLast30.setDate(startOfLast30.getDate() - 30)
+
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const startOfThisYear = new Date(now.getFullYear(), 0, 1)
+    const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1)
+
+    const parseYmd = (s) => {
+      const v = String(s || '').trim()
+      if (!v) return null
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      if (!m) return null
+      const y = Number(m[1])
+      const mm = Number(m[2]) - 1
+      const d = Number(m[3])
+      const dt = new Date(y, mm, d)
+      if (isNaN(dt)) return null
+      if (dt.getFullYear() !== y || dt.getMonth() !== mm || dt.getDate() !== d) return null
+      return dt
+    }
+    const fromDate = parseYmd(dateFrom)
+    const toDate = parseYmd(dateTo)
+    const toDateExclusive = toDate ? new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate() + 1) : null
 
     const res = list.filter((d) => {
       const hay = `${d.titolo || ''} ${d.file_name || ''}`.toLowerCase()
@@ -130,7 +161,31 @@ export default function Documentazione() {
         ? true
         : dateFilter === 'today'
           ? (created && created >= startOfToday)
-          : (created && created >= startOfWeek)
+          : dateFilter === 'yesterday'
+            ? (created && created >= startOfYesterday && created < startOfToday)
+            : dateFilter === 'week'
+              ? (created && created >= startOfWeek)
+              : dateFilter === 'last30'
+                ? (created && created >= startOfLast30)
+                : dateFilter === 'this_month'
+                  ? (created && created >= startOfThisMonth)
+                  : dateFilter === 'last_month'
+                    ? (created && created >= startOfLastMonth && created < startOfThisMonth)
+                    : dateFilter === 'this_year'
+                      ? (created && created >= startOfThisYear)
+                      : dateFilter === 'last_year'
+                        ? (created && created >= startOfLastYear && created < startOfThisYear)
+                        : dateFilter === 'range'
+                          ? (
+                            (!fromDate && !toDateExclusive)
+                              ? true
+                              : (
+                                !created
+                                  ? false
+                                  : (!fromDate || created >= fromDate) && (!toDateExclusive || created < toDateExclusive)
+                              )
+                          )
+                          : true
 
       const tk = fileTypeKey(d.content_type)
       const okType = typeFilter === 'all' ? true : tk === typeFilter
@@ -146,7 +201,7 @@ export default function Documentazione() {
       return new Date(b.created_at || 0) - new Date(a.created_at || 0)
     })
     return sorted
-  }, [dateFilter, q, sortBy, tabAttiva, typeFilter])
+  }, [dateFilter, dateFrom, dateTo, q, sortBy, tabAttiva, typeFilter])
 
   const filtered = useMemo(() => {
     return applyFilters(docs)
@@ -572,8 +627,38 @@ export default function Documentazione() {
           >
             <option value="all">Tutte le date</option>
             <option value="today">Oggi</option>
+            <option value="yesterday">Ieri</option>
             <option value="week">Ultimi 7 giorni</option>
+            <option value="last30">Ultimi 30 giorni</option>
+            <option value="this_month">Questo mese</option>
+            <option value="last_month">Mese scorso</option>
+            <option value="this_year">Anno corrente</option>
+            <option value="last_year">Anno scorso</option>
+            <option value="range">Intervallo…</option>
           </select>
+          {dateFilter === 'range' ? (
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              />
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => { setDateFilter('all'); setDateFrom(''); setDateTo('') }}
+                className="px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium transition-colors"
+              >
+                Annulla
+              </button>
+            </div>
+          ) : null}
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}

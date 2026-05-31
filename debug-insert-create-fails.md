@@ -20,8 +20,10 @@
 | E | Errore JS runtime (eccezione) prima della chiamata Supabase | Low | Med | Pending |
 
 ## Log Evidence
-- (pending)
+- 403 su insert fornitori:
+  - `new row violates row-level security policy for table "fornitori"`
+  - origine: `POST https://evsalzxpheuszedrrymg.supabase.co/rest/v1/fornitori`
+  - evidenza: log debug `hypothesisId=B` (response status 403 + payload)
 
 ## Verification Conclusion
-- (pending)
-
+- Causa più probabile: RLS su `fornitori` non ha policy INSERT per l'utente corrente.
