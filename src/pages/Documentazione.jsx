@@ -124,9 +124,25 @@ export default function Documentazione() {
   }
 
   const openDoc = async (d) => {
+    setError('')
+    const w = window.open('about:blank', '_blank')
     const { data, error: e } = await supabase.storage.from(d.storage_bucket || BUCKET).createSignedUrl(d.storage_path, 300)
-    if (e) { setError(e.message); return }
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    if (e) {
+      if (w) w.close()
+      setError(e.message)
+      return
+    }
+    if (!data?.signedUrl) {
+      if (w) w.close()
+      setError('Impossibile aprire il documento.')
+      return
+    }
+    if (w) {
+      w.location.href = data.signedUrl
+    } else {
+      window.location.href = data.signedUrl
+      setError('Popup bloccato dal browser: apro il documento nella stessa scheda.')
+    }
   }
 
   const deleteDoc = async (d) => {
